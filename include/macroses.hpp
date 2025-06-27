@@ -1,0 +1,1 @@
+#define CLAMP(min, value, max) (value < min) ? min : (max < value) ? max : value;

@@ -11,7 +11,11 @@ add_link_options(-static -static-libgcc -static-libstdc++)
 
 add_subdirectory(external/glfw)
 
+include_directories(include)
+
 find_package(Vulkan REQUIRED)
 
-add_executable(VulkanTriangle main.cpp)
+file(GLOB CPPS "src/*.cpp")
+
+add_executable(VulkanTriangle ${CPPS})
 target_link_libraries(VulkanTriangle glfw Vulkan::Vulkan)
