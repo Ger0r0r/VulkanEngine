@@ -7,6 +7,7 @@
 #include "PhysicalDevice.hpp"
 #include "Surface.hpp"
 #include "Queue.hpp"
+#include "Vertex.hpp"
 
 class Vulkan
 {
@@ -37,6 +38,8 @@ class Vulkan
         std::vector<VkSemaphore> renderFinishedSemaphores; // семафор окончания рендера
         std::vector<VkFence> inWorkFences; // барьер кадра в работе
         uint32_t currentFrame = 0; // Текущий кадр рендера
+        float animationTime = 0.0f;  // Таймер для анимации
+        std::vector<Vertex> vertices;  // Динамические вершины (вместо статичного массива)
 
         // Структура для хранения флагов
         struct
@@ -61,6 +64,7 @@ class Vulkan
         void createIndexBuffer(); // Создание буфера индексов
         void createSyncObjects(); // Создание объектов синхронизации
         void createFramebuffers(); // Создание буферов кадра
+        void updateVertexBuffer();
 };
 
 #endif // VK_H

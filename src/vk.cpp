@@ -816,46 +816,62 @@ void Vulkan::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
 	vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
 }
 
+void Vulkan::updateVertexBuffer() {
+    // 1. Обновляем позиции вершин по синусоиде
+    float offset = sin(animationTime) * 0.5f;  // Движение влево-вправо (-0.5..0.5)
+    vertices[0].position.x = offset;          // Вершина 1
+    vertices[1].position.x = 0.5f + offset;   // Вершина 2
+    vertices[2].position.x = -0.5f + offset;  // Вершина 3
+
+    // 2. Копируем обновлённые вершины в GPU-буфер
+    VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
+
+    // Создаём временный staging buffer
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                stagingBuffer, stagingBufferMemory);
+
+    // Копируем вершины в staging buffer
+    void* data;
+    vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, vertices.data(), bufferSize);
+    vkUnmapMemory(logicalDevice, stagingBufferMemory);
+
+    // Копируем из staging в основной буфер
+    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+    // Удаляем staging buffer
+    vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+}
+
 // Создание вершинного буфера
 void Vulkan::createVertexBuffer() {
-	//Вершины, записываемые в буфер
-	Vertex vertices[] = {
-		{ { 0.0f, -0.5f}, {1.0f, 0.0f, 0.0f} },
-		{ { 0.5f,  0.5f}, {0.0f, 1.0f, 0.0f} },
-		{ {-0.5f,  0.5f}, {0.0f, 0.0f, 1.0f} }
-	};
-	// Размер буфера в байтах
-	VkDeviceSize bufferSize = sizeof(Vertex) * 3;
+    // Исходные вершины (цвета остаются теми же)
+    vertices = {
+        { { 0.0f, -0.5f}, {1.0f, 0.0f, 0.0f} },  // Красный
+        { { 0.5f,  0.5f}, {0.0f, 1.0f, 0.0f} },  // Зелёный
+        { {-0.5f,  0.5f}, {0.0f, 0.0f, 1.0f} },   // Синий
+        { { 0.0f,  1.0f}, {1.0f, 1.0f, 1.0f} }   //  Белый
+    };
 
-	// Промежуточный буфер для переноса на устройство
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    // Создаём буфер (как раньше)
+    VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
+    createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
 
-	// Отображение памяти буфера
-	void* data;
-	vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
-	// Копирование вершин в промежуточный буфер
-	memcpy(data, vertices, (size_t) bufferSize);
-	// Прекращение отображения памяти буфера
-	vkUnmapMemory(logicalDevice, stagingBufferMemory);
-
-	// Создание буфера вершин
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
-	// Копирование из промежуточного в буфер вершин
-	copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-	// Освобождение памяти и уничтожение буферов
-	vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+    // Копируем данные в буфер (через staging buffer, как в оригинале)
+    updateVertexBuffer();  // Новая функция для обновления данных
 }
 
 // Создание буфера индексов
 void Vulkan::createIndexBuffer() {
 	// Индексы, записываемые в буфер
-	uint16_t indices[] = {0, 1, 2};
+	uint16_t indices[] = {0, 1, 2, 1, 3, 2};
 	// Размер буфера в байтах
-	VkDeviceSize bufferSize = sizeof(uint16_t) * 3;
+	VkDeviceSize bufferSize = sizeof(uint16_t) * 6;
 
 	// Промежуточный буфер для переноса на устройство
 	VkBuffer stagingBuffer;
@@ -930,6 +946,11 @@ void Vulkan::createFramebuffers() {
 
 // Рендер кадра
 void Vulkan::renderFrame() {
+    // 1. Обновляем таймер анимации
+    animationTime += 0.01f;  // Скорость анимации
+
+    // 2. Обновляем вершины
+    updateVertexBuffer();
 	vkWaitForFences(logicalDevice, 1, &inWorkFences[currentFrame], VK_TRUE, UINT64_MAX);
 	vkResetFences(logicalDevice, 1, &inWorkFences[currentFrame]);
 
@@ -969,7 +990,7 @@ void Vulkan::renderFrame() {
 
 	vkCmdBindIndexBuffer(commandBuffers[currentFrame], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-	vkCmdDrawIndexed(commandBuffers[currentFrame], 3, 1, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffers[currentFrame], 6, 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(commandBuffers[currentFrame]);
 
