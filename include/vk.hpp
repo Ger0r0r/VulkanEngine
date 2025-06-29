@@ -15,6 +15,7 @@ class Vulkan
         void init(GLFWwindow* window); // инициализация
         void destroy(); // завершение работы
         void renderFrame(); // рендер кадра
+        void setDeltaTime(float dt) { deltaTime = dt; }
     private:
         VkInstance instance; // Экземпляр Vulkan
         PhysicalDevice physicalDevice; // Физическое устройство
@@ -38,7 +39,8 @@ class Vulkan
         std::vector<VkSemaphore> renderFinishedSemaphores; // семафор окончания рендера
         std::vector<VkFence> inWorkFences; // барьер кадра в работе
         uint32_t currentFrame = 0; // Текущий кадр рендера
-        float animationTime = 0.0f;  // Таймер для анимации
+        float animationTime = 0.0f;
+        float deltaTime = 0.01f; // Примерное значение по умолчанию (60 FPS)
         std::vector<Vertex> vertices;  // Динамические вершины (вместо статичного массива)
 
         // Структура для хранения флагов
