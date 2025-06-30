@@ -5,79 +5,108 @@
 
 void vkInit();
 
-void processInput(GLFWwindow* window) {
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        std::cout << "W pressed" << std::endl;
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        std::cout << "A pressed" << std::endl;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        std::cout << "S pressed" << std::endl;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        std::cout << "D pressed" << std::endl;
+bool key_W_flag;
+bool key_A_flag;
+bool key_S_flag;
+bool key_D_flag;
 
-    // Добавим выход по Escape для удобства
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
+void processInput(GLFWwindow* window) {
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+		// std::cout << "W pressed" << std::endl;
+		key_W_flag = 1;
+	else
+		key_W_flag = 0;
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+		// std::cout << "A pressed" << std::endl;
+		key_A_flag = 1;
+	else
+		key_A_flag = 0;
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+		// std::cout << "S pressed" << std::endl;
+		key_S_flag = 1;
+	else
+		key_S_flag = 0;
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		// std::cout << "D pressed" << std::endl;
+		key_D_flag = 1;
+	else
+		key_D_flag = 0;
+
+	// Добавим выход по Escape для удобства
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
 int main(int argc, char* argv[]) {
 
-    // Инициализация GLFW
-    glfwInit();
+	// Инициализация GLFW
+	glfwInit();
 
-    // Проверка доступности Vulkan
-    if (glfwVulkanSupported()) {
-        // объект класса-обертки Vulkan API
-        Vulkan vulkan;
+	// Проверка доступности Vulkan
+	if (glfwVulkanSupported()) {
+		// объект класса-обертки Vulkan API
+		Vulkan vulkan;
 
-        // Отключим создание контекста
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        // Отключим возможность изменения размеров окна
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-        // Создание окна
-        GLFWwindow* window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
+		// Отключим создание контекста
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		// Отключим возможность изменения размеров окна
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+		// Создание окна
+		GLFWwindow* window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
 
-        // Инициализация Vulkan API
-        vulkan.init(window);
+		// Инициализация Vulkan API
+		vulkan.init(window);
 
-            // Переменные для FPS
-        auto lastTime = std::chrono::high_resolution_clock::now();
-		auto lastFrameTime = lastTime;
-        int frameCount = 0;
-        float fpsUpdateInterval = 1.0f; // Обновлять FPS раз в секунду
-        float frameUpdateInterval = 0.01f; // Обновлять Кадр раз в 0.01 секунду
-        // Жизненный цикл
-        while(!glfwWindowShouldClose(window)) {
+		// Переменные для FPS
+		auto lastTime_fps = std::chrono::high_resolution_clock::now();
+		auto lastFrameTime = lastTime_fps;
+		auto lastTime_frame = lastTime_fps;
+		int frameCount = 0;
+		float fpsUpdateInterval = 1.0f; // Обновлять FPS раз в секунду
 
-            auto currentTime = std::chrono::high_resolution_clock::now();
-            float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
-            frameCount++;
+		// Переменные для Кадра
+		const int target_fps = 1000;
+		float frameUpdateInterval = 1.0f / target_fps; // Обновлять Кадр раз в 0.01 секунду
+		// Жизненный цикл
+		while(!glfwWindowShouldClose(window)) {
+
+			auto currentTime = std::chrono::high_resolution_clock::now();
+
+			float deltaTime_frame = std::chrono::duration<float>(currentTime - lastTime_frame).count();
+			float deltaTime_fps = std::chrono::duration<float>(currentTime - lastTime_fps).count();
 			lastFrameTime = currentTime;
 
 			// Передаем дельту времени в Vulkan
-			vulkan.setDeltaTime(deltaTime);
+			vulkan.setDeltaTime(deltaTime_frame);
 
-            if (deltaTime >= fpsUpdateInterval) {
-                std::cout << "FPS: " << frameCount / deltaTime << std::endl;
-                frameCount = 0;
-                lastTime = currentTime;
-            }
+			if (deltaTime_fps >= fpsUpdateInterval) {
+				std::cout << "FPS: " << frameCount << std::endl;
+				frameCount = 0;
+				lastTime_fps = currentTime;
+			}
 
-            processInput(window);  // Вызываем обработчик ввода
-            vulkan.renderFrame();// Отрисовка кадра
-            glfwPollEvents();// Обработка событий
-        }
+			processInput(window);  // Вызываем обработчик ввода
 
-        // Уничтожение окна
-        glfwDestroyWindow(window);
+			if (deltaTime_frame >= frameUpdateInterval) {
+				vulkan.renderFrame(key_W_flag, key_A_flag, key_S_flag, key_D_flag);// Отрисовка кадра
+				frameCount++;
+				lastTime_frame = currentTime;
+			}
 
-        // Завершение работы с Vulkan
-        vulkan.destroy();
-    } else
-        std::cout << "There is no Vulkan Supported\n";
+			glfwPollEvents();// Обработка событий
 
-    // Завершение работы с GLFW
-    glfwTerminate();
+		}
 
-    return 0;
+		// Уничтожение окна
+		glfwDestroyWindow(window);
+
+		// Завершение работы с Vulkan
+		vulkan.destroy();
+	} else
+		std::cout << "There is no Vulkan Supported\n";
+
+	// Завершение работы с GLFW
+	glfwTerminate();
+
+	return 0;
 }

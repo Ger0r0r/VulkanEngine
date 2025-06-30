@@ -38,9 +38,9 @@ void Vulkan::updateVertexBuffer() {
 	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 }
 // Рендер кадра
-void Vulkan::renderFrame() {
+void Vulkan::renderFrame(bool key_w, bool key_a, bool key_s, bool key_d) {
 	// 1. Обновляем таймер анимации
-	animationTime += 0.01f;  // Скорость анимации
+	animationTime += deltaTime;  // Скорость анимации
 
 	// 2. Обновляем вершины
 	updateVertexBuffer();
@@ -84,6 +84,19 @@ void Vulkan::renderFrame() {
 	vkCmdBindIndexBuffer(commandBuffers[currentFrame], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
 	vkCmdDrawIndexed(commandBuffers[currentFrame], 6, 1, 0, 0, 0);
+
+	if (key_w) {
+		vkCmdDrawIndexed(commandBuffers[currentFrame], 3, 1, 15, 0, 0);
+	}
+	if (key_a) {
+		vkCmdDrawIndexed(commandBuffers[currentFrame], 3, 1, 12, 0, 0);
+	}
+	if (key_s) {
+		vkCmdDrawIndexed(commandBuffers[currentFrame], 3, 1, 9, 0, 0);
+	}
+	if (key_d) {
+		vkCmdDrawIndexed(commandBuffers[currentFrame], 3, 1, 6, 0, 0);
+	}
 
 	vkCmdEndRenderPass(commandBuffers[currentFrame]);
 

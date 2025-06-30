@@ -14,7 +14,7 @@ class Vulkan
     public:
         void init(GLFWwindow* window); // инициализация
         void destroy(); // завершение работы
-        void renderFrame(); // рендер кадра
+        void renderFrame(bool key_w, bool key_a, bool key_s, bool key_d); // рендер кадра
         void setDeltaTime(float dt) { deltaTime = dt; }
     private:
         VkInstance instance; // Экземпляр Vulkan
