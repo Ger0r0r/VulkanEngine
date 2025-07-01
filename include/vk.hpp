@@ -17,6 +17,32 @@ class Vulkan
         void renderFrame(bool key_w, bool key_a, bool key_s, bool key_d); // рендер кадра
         void setDeltaTime(float dt) { deltaTime = dt; }
     private:
+        VkDescriptorPool descriptorPool;
+        VkDescriptorSet descriptorSet;
+
+        void createDescriptorPool();
+        void createDescriptorSet();
+
+        GLFWwindow* window;  // Добавляем в private-секцию
+        VkBuffer uniformBuffer;
+        VkDeviceMemory uniformBufferMemory;
+        void* uniformBufferMapped;
+
+        VkDescriptorSetLayout descriptorSetLayout; // Для uniform buffer
+
+        // Матрицы и камера
+        glm::mat4 modelMatrix;
+        glm::mat4 viewMatrix;
+        glm::mat4 projMatrix;
+        glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 5.0f);
+        glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+        glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+        // Новые методы
+        void createUniformBuffer();
+        void createDescriptorSetLayout();
+        void updateUniformBuffer();
+
         VkInstance instance; // Экземпляр Vulkan
         PhysicalDevice physicalDevice; // Физическое устройство
         VkDevice logicalDevice; // логическое устройство

@@ -9,6 +9,7 @@
 
 // инициализация
 void Vulkan::init(GLFWwindow* window) {
+    this->window = window;  // Сохраняем указатель
 	createInstance(); // Создание экземпяра
 	createWindowSurface(window); // Создание поверхности
 	// Расширения для устройства: имена задаются внутри фигурных скобок в кавычках
@@ -18,16 +19,59 @@ void Vulkan::init(GLFWwindow* window) {
 	createSwapchain(window); // Создание списка показа
 	createRenderpass(); // Создание проходов рендера
 	createFramebuffers(); // Создание буферов кадра
+    createDescriptorSetLayout(); // <- Добавляем эту строку
 	createGraphicPipeline(); // Создание графического конвейера
 	createCommandPool(); // Создание пула команд
 	createVertexBuffer(); // Создание буфера вершин
 	createIndexBuffer(); // Создание буфера индексов
+    createUniformBuffer(); // <- Добавляем эту строку
+    createDescriptorPool();    // Добавьте эту строку
+    createDescriptorSet();     // Добавьте эту строку
 	createSyncObjects(); // Создание объектов синхронизации
+}
+
+void Vulkan::createUniformBuffer() {
+    VkDeviceSize bufferSize = sizeof(glm::mat4) * 3; // model, view, proj
+
+    createBuffer(bufferSize,
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                uniformBuffer,
+                uniformBufferMemory);
+
+    vkMapMemory(logicalDevice, uniformBufferMemory, 0, bufferSize, 0, &uniformBufferMapped);
+}
+
+void Vulkan::createDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &uboLayoutBinding;
+
+    if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
 }
 
 // завершение работы
 void Vulkan::destroy() {
 	vkDeviceWaitIdle(logicalDevice); // Ожидание окончания асинхронных задач
+
+    vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
+
+    // Уничтожаем uniform buffer
+    vkDestroyBuffer(logicalDevice, uniformBuffer, nullptr);
+    vkFreeMemory(logicalDevice, uniformBufferMemory, nullptr);
+
+    // Уничтожаем layout дескрипторов
+    vkDestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, nullptr);
+
 
 	vkDestroyBuffer(logicalDevice, indexBuffer, nullptr); // Уничтожение буфера индексов
 	vkFreeMemory(logicalDevice, indexBufferMemory, nullptr); // Освобождение памяти буфера индексов
@@ -567,7 +611,7 @@ void Vulkan::createGraphicPipeline() {
 
 	attributeDescriptions[0].binding = 0;
 	attributeDescriptions[0].location = 0;
-	attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+	attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 	attributeDescriptions[0].offset = offsetof(Vertex, position);
 
 	attributeDescriptions[1].binding = 0;
@@ -645,8 +689,9 @@ void Vulkan::createGraphicPipeline() {
 	// раскладка конвейера
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 0;
-	pipelineLayoutInfo.pushConstantRangeCount = 0;
+	pipelineLayoutInfo.setLayoutCount = 1;  // ← Количество макетов дескрипторов
+	pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;  // ← Ваш макет дескриптора
+	pipelineLayoutInfo.pushConstantRangeCount = 0;  // (если не используете push-константы)
 
 	if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
 	{
@@ -818,38 +863,59 @@ void Vulkan::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
 
 // Создание вершинного буфера
 void Vulkan::createVertexBuffer() {
-	// Исходные вершины (цвета остаются теми же)
-	vertices = {
-		{ { 0.0f, -0.5f}, {1.0f, 0.0f, 0.0f} },  // Красный
-		{ { 0.5f,  0.5f}, {0.0f, 1.0f, 0.0f} },  // Зелёный
-		{ {-0.5f,  0.5f}, {0.0f, 0.0f, 1.0f} },   // Синий
-		{ { 0.0f,  1.0f}, {1.0f, 1.0f, 1.0f} },   // Белый
+    vertices = {
+        // Основание пирамиды (4 вершины)
+        { {  1.0f,  1.0f,  1.0f }, {0.0f, 1.0f, 1.0f} }, // 1 - бирюзовый
+        { {  1.0f, -1.0f,  1.0f }, {0.0f, 1.0f, 1.0f} }, // 2 - бирюзовый
+        { { -1.0f, -1.0f,  1.0f }, {0.0f, 1.0f, 1.0f} }, // 3 - бирюзовый
+        { { -1.0f,  1.0f,  1.0f }, {0.0f, 1.0f, 1.0f} }, // 4 - бирюзовый
 
-		{ { 0.9f, -0.9f}, {1.0f, 0.0f, 0.0f} },
-		{ { 0.95f,-0.85f},{1.0f, 0.0f, 0.0f} },
-		{ { 0.9f, -0.8f}, {1.0f, 0.0f, 0.0f} },
-		{ { 0.85f,-0.75f},{1.0f, 0.0f, 0.0f} },
-		{ { 0.8f, -0.8f}, {1.0f, 0.0f, 0.0f} },
-		{ { 0.75f,-0.85f},{1.0f, 0.0f, 0.0f} },
-		{ { 0.8f, -0.9f}, {1.0f, 0.0f, 0.0f} },
-		{ { 0.85f,-0.95f},{1.0f, 0.0f, 0.0f} }
-	};
+        { {  1.0f,  1.0f, -1.0f }, {1.0f, 0.0f, 0.0f} }, // 5 - красный
+        { {  1.0f,  1.0f,  1.0f }, {1.0f, 0.0f, 0.0f} }, // 1 - красный
+        { { -1.0f,  1.0f,  1.0f }, {1.0f, 0.0f, 0.0f} }, // 4 - красный
+        { { -1.0f,  1.0f, -1.0f }, {1.0f, 0.0f, 0.0f} }, // 8 - красный
 
-	// Создаём буфер (как раньше)
-	VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
-	createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-				 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+        { { -1.0f,  1.0f, -1.0f }, {0.0f, 0.0f, 1.0f} }, // 8 - синий
+        { { -1.0f,  1.0f,  1.0f }, {0.0f, 0.0f, 1.0f} }, // 4 - синий
+        { { -1.0f, -1.0f,  1.0f }, {0.0f, 0.0f, 1.0f} }, // 3 - синий
+        { { -1.0f, -1.0f, -1.0f }, {0.0f, 0.0f, 1.0f} }, // 7 - синий
 
-	// Копируем данные в буфер (через staging buffer, как в оригинале)
-	updateVertexBuffer();  // Новая функция для обновления данных
+        { {  1.0f,  1.0f,  1.0f }, {0.0f, 1.0f, 0.0f} }, // 1 - зелёный
+        { {  1.0f,  1.0f, -1.0f }, {0.0f, 1.0f, 0.0f} }, // 5 - зелёный
+        { {  1.0f, -1.0f, -1.0f }, {0.0f, 1.0f, 0.0f} }, // 6 - зелёный
+        { {  1.0f, -1.0f,  1.0f }, {0.0f, 1.0f, 0.0f} }, // 2 - зелёный
+
+        { {  1.0f,  1.0f, -1.0f }, {1.0f, 1.0f, 0.0f} }, // 5 - жёлтый
+        { { -1.0f,  1.0f, -1.0f }, {1.0f, 1.0f, 0.0f} }, // 8 - жёлтый
+        { { -1.0f, -1.0f, -1.0f }, {1.0f, 1.0f, 0.0f} }, // 7 - жёлтый
+        { {  1.0f, -1.0f, -1.0f }, {1.0f, 1.0f, 0.0f} }, // 6 - жёлтый
+
+        { { -1.0f, -1.0f,  1.0f }, {1.0f, 0.0f, 1.0f} }, // 3 - фиолетовый
+        { {  1.0f, -1.0f,  1.0f }, {1.0f, 0.0f, 1.0f} }, // 2 - фиолетовый
+        { {  1.0f, -1.0f, -1.0f }, {1.0f, 0.0f, 1.0f} }, // 6 - фиолетовый
+        { { -1.0f, -1.0f, -1.0f }, {1.0f, 0.0f, 1.0f} }  // 7 - фиолетовый
+
+    };
+
+    VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
+    createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+
+    updateVertexBuffer();
 }
 
 // Создание буфера индексов
 void Vulkan::createIndexBuffer() {
-	// Индексы, записываемые в буфер
-	uint16_t indices[] = {0,1,2, 1,3,2, 4,5,6, 6,7,8, 8,9,10, 10,11,4};
-	// Размер буфера в байтах
-	VkDeviceSize bufferSize = sizeof(uint16_t) * 3 * 6;
+    uint16_t indices[] = {
+        0,1,2,	2,3,0,
+		4,5,6,	6,7,4,
+		8,9,10,	10,11,8,
+		12,13,14,	14,15,12,
+		16,17,18,	18,19,16,
+		20,21,22,	22,23,20
+    };
+
+    VkDeviceSize bufferSize = sizeof(indices);
 
 	// Промежуточный буфер для переноса на устройство
 	VkBuffer stagingBuffer;
@@ -922,3 +988,47 @@ void Vulkan::createFramebuffers() {
 	}
 }
 
+void Vulkan::createDescriptorPool() {
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.maxSets = 1;
+
+    if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
+}
+
+void Vulkan::createDescriptorSet() {
+    VkDescriptorSetLayout layouts[] = {descriptorSetLayout};
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = layouts;
+
+    if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &descriptorSet) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    VkDescriptorBufferInfo bufferInfo{};
+    bufferInfo.buffer = uniformBuffer;
+    bufferInfo.offset = 0;
+    bufferInfo.range = sizeof(glm::mat4) * 3;
+
+    VkWriteDescriptorSet descriptorWrite{};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet = descriptorSet;
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.dstArrayElement = 0;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pBufferInfo = &bufferInfo;
+
+    vkUpdateDescriptorSets(logicalDevice, 1, &descriptorWrite, 0, nullptr);
+}

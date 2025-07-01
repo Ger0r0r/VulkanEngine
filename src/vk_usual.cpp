@@ -7,12 +7,11 @@
 
 #include "macroses.hpp"
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>  // Для rotate, lookAt, perspective
+#include <glm/gtc/type_ptr.hpp>         // Для работы с матрицами
+
 void Vulkan::updateVertexBuffer() {
-	// 1. Обновляем позиции вершин по синусоиде
-	float offset = sin(animationTime) * 0.5f;  // Движение влево-вправо (-0.5..0.5)
-	vertices[0].position.x = offset;          // Вершина 1
-	vertices[1].position.x = 0.5f + offset;   // Вершина 2
-	vertices[2].position.x = -0.5f + offset;  // Вершина 3
 
 	// 2. Копируем обновлённые вершины в GPU-буфер
 	VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
@@ -39,6 +38,28 @@ void Vulkan::updateVertexBuffer() {
 }
 // Рендер кадра
 void Vulkan::renderFrame(bool key_w, bool key_a, bool key_s, bool key_d) {
+    // 1. Обновляем камеру (WASD + пробел/Ctrl)
+    const float cameraSpeed = 2.5f * deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) cameraPos += cameraSpeed * cameraFront;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) cameraPos -= cameraSpeed * cameraFront;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) cameraPos += cameraSpeed * cameraUp;
+    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) cameraPos -= cameraSpeed * cameraUp;
+
+    // 2. Обновляем матрицы
+    modelMatrix = glm::rotate(glm::mat4(1.0f), animationTime * glm::radians(90.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+    viewMatrix = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+    projMatrix = glm::perspective(glm::radians(45.0f),
+                                 surface.selectedExtent.width / (float)surface.selectedExtent.height,
+                                 0.1f, 100.0f);
+    projMatrix[1][1] *= -1; // Инвертируем Y для Vulkan
+
+    // 3. Копируем матрицы в uniform buffer
+    memcpy(uniformBufferMapped, &modelMatrix, sizeof(glm::mat4));
+    memcpy((char*)uniformBufferMapped + sizeof(glm::mat4), &viewMatrix, sizeof(glm::mat4));
+    memcpy((char*)uniformBufferMapped + 2*sizeof(glm::mat4), &projMatrix, sizeof(glm::mat4));
+
 	// 1. Обновляем таймер анимации
 	animationTime += deltaTime;  // Скорость анимации
 
@@ -82,21 +103,14 @@ void Vulkan::renderFrame(bool key_w, bool key_a, bool key_s, bool key_d) {
 	vkCmdBindVertexBuffers(commandBuffers[currentFrame], 0, 1, vertexBuffers, offsets);
 
 	vkCmdBindIndexBuffer(commandBuffers[currentFrame], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    // Перед vkCmdDrawIndexed добавьте:
+    vkCmdBindDescriptorSets(commandBuffers[currentFrame],
+                          VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          pipelineLayout,
+                          0, 1, &descriptorSet,
+                          0, nullptr);
 
-	vkCmdDrawIndexed(commandBuffers[currentFrame], 6, 1, 0, 0, 0);
-
-	if (key_w) {
-		vkCmdDrawIndexed(commandBuffers[currentFrame], 3, 1, 15, 0, 0);
-	}
-	if (key_a) {
-		vkCmdDrawIndexed(commandBuffers[currentFrame], 3, 1, 12, 0, 0);
-	}
-	if (key_s) {
-		vkCmdDrawIndexed(commandBuffers[currentFrame], 3, 1, 9, 0, 0);
-	}
-	if (key_d) {
-		vkCmdDrawIndexed(commandBuffers[currentFrame], 3, 1, 6, 0, 0);
-	}
+    vkCmdDrawIndexed(commandBuffers[currentFrame], 36, 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(commandBuffers[currentFrame]);
 

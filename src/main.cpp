@@ -11,30 +11,8 @@ bool key_S_flag;
 bool key_D_flag;
 
 void processInput(GLFWwindow* window) {
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-		// std::cout << "W pressed" << std::endl;
-		key_W_flag = 1;
-	else
-		key_W_flag = 0;
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		// std::cout << "A pressed" << std::endl;
-		key_A_flag = 1;
-	else
-		key_A_flag = 0;
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		// std::cout << "S pressed" << std::endl;
-		key_S_flag = 1;
-	else
-		key_S_flag = 0;
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		// std::cout << "D pressed" << std::endl;
-		key_D_flag = 1;
-	else
-		key_D_flag = 0;
-
-	// Добавим выход по Escape для удобства
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-		glfwSetWindowShouldClose(window, GLFW_TRUE);
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
 int main(int argc, char* argv[]) {
