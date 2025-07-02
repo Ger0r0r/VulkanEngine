@@ -65,46 +65,6 @@ glm::vec3 hsvToRgb(glm::vec3 in)
     }
     return out;
 }
-
-void Vulkan::updateVertexBuffer() {
-
-	for (int i = 0; i < size_of_field; i++) {
-		for (int j = 0; j < size_of_field; j++) {
-			float current_color = animationTime * 10 + (i - j) * 200 / size_of_field;
-			current_color -= 360.0f * std::floor(current_color / 360.0f);
-
-			glm::vec3 rgb = hsvToRgb({current_color, 1.0f, 1.0f});
-
-			vertices[i*size_of_field+j].position.z = sin(animationTime + (i - j) * 10.0f / size_of_field)*0.1f;
-			vertices[i*size_of_field+j].color.x = rgb.x;
-			vertices[i*size_of_field+j].color.y = rgb.y;
-			vertices[i*size_of_field+j].color.z = rgb.z;
-		}
-	}
-
-	// 2. Копируем обновлённые вершины в GPU-буфер
-	VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
-
-	// Создаём временный staging buffer
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				stagingBuffer, stagingBufferMemory);
-
-	// Копируем вершины в staging buffer
-	void* data;
-	vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, vertices.data(), bufferSize);
-	vkUnmapMemory(logicalDevice, stagingBufferMemory);
-
-	// Копируем из staging в основной буфер
-	copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-	// Удаляем staging buffer
-	vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
-}
 // Рендер кадра
 void Vulkan::renderFrame() {
     // 1. Обновляем камеру (WASD + пробел/Ctrl)
@@ -128,12 +88,12 @@ void Vulkan::renderFrame() {
     memcpy(uniformBufferMapped, &modelMatrix, sizeof(glm::mat4));
     memcpy((char*)uniformBufferMapped + sizeof(glm::mat4), &viewMatrix, sizeof(glm::mat4));
     memcpy((char*)uniformBufferMapped + 2*sizeof(glm::mat4), &projMatrix, sizeof(glm::mat4));
+    memcpy((char*)uniformBufferMapped + 3*sizeof(glm::mat4), &animationTime, sizeof(float));
 
 	// 1. Обновляем таймер анимации
 	animationTime += deltaTime;  // Скорость анимации
 
 	// 2. Обновляем вершины
-	updateVertexBuffer();
 	vkWaitForFences(logicalDevice, 1, &inWorkFences[currentFrame], VK_TRUE, UINT64_MAX);
 	vkResetFences(logicalDevice, 1, &inWorkFences[currentFrame]);
 

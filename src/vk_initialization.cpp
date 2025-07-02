@@ -9,7 +9,7 @@
 
 // инициализация
 void Vulkan::init(GLFWwindow* window) {
-    this->window = window;  // Сохраняем указатель
+	this->window = window;  // Сохраняем указатель
 	createInstance(); // Создание экземпяра
 	createWindowSurface(window); // Создание поверхности
 	// Расширения для устройства: имена задаются внутри фигурных скобок в кавычках
@@ -19,58 +19,58 @@ void Vulkan::init(GLFWwindow* window) {
 	createSwapchain(window); // Создание списка показа
 	createRenderpass(); // Создание проходов рендера
 	createFramebuffers(); // Создание буферов кадра
-    createDescriptorSetLayout(); // <- Добавляем эту строку
+	createDescriptorSetLayout(); // <- Добавляем эту строку
 	createGraphicPipeline(); // Создание графического конвейера
 	createCommandPool(); // Создание пула команд
 	createVertexBuffer(); // Создание буфера вершин
 	createIndexBuffer(); // Создание буфера индексов
-    createUniformBuffer(); // <- Добавляем эту строку
-    createDescriptorPool();    // Добавьте эту строку
-    createDescriptorSet();     // Добавьте эту строку
+	createUniformBuffer(); // <- Добавляем эту строку
+	createDescriptorPool();    // Добавьте эту строку
+	createDescriptorSet();     // Добавьте эту строку
 	createSyncObjects(); // Создание объектов синхронизации
 }
 
 void Vulkan::createUniformBuffer() {
-    VkDeviceSize bufferSize = sizeof(glm::mat4) * 3; // model, view, proj
+	VkDeviceSize bufferSize = sizeof(glm::mat4) * 3 + sizeof(float); // model, view, proj + time
 
-    createBuffer(bufferSize,
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                uniformBuffer,
-                uniformBufferMemory);
+	createBuffer(bufferSize,
+			   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			   uniformBuffer,
+			   uniformBufferMemory);
 
-    vkMapMemory(logicalDevice, uniformBufferMemory, 0, bufferSize, 0, &uniformBufferMapped);
+	vkMapMemory(logicalDevice, uniformBufferMemory, 0, bufferSize, 0, &uniformBufferMapped);
 }
 
 void Vulkan::createDescriptorSetLayout() {
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding = 0;
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount = 1;
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	VkDescriptorSetLayoutBinding uboLayoutBinding{};
+	uboLayoutBinding.binding = 0;
+	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	uboLayoutBinding.descriptorCount = 1;
+	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings = &uboLayoutBinding;
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = 1;
+	layoutInfo.pBindings = &uboLayoutBinding;
 
-    if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor set layout!");
-    }
+	if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create descriptor set layout!");
+	}
 }
 
 // завершение работы
 void Vulkan::destroy() {
 	vkDeviceWaitIdle(logicalDevice); // Ожидание окончания асинхронных задач
 
-    vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
+	vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 
-    // Уничтожаем uniform buffer
-    vkDestroyBuffer(logicalDevice, uniformBuffer, nullptr);
-    vkFreeMemory(logicalDevice, uniformBufferMemory, nullptr);
+	// Уничтожаем uniform buffer
+	vkDestroyBuffer(logicalDevice, uniformBuffer, nullptr);
+	vkFreeMemory(logicalDevice, uniformBufferMemory, nullptr);
 
-    // Уничтожаем layout дескрипторов
-    vkDestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, nullptr);
+	// Уничтожаем layout дескрипторов
+	vkDestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, nullptr);
 
 
 	vkDestroyBuffer(logicalDevice, indexBuffer, nullptr); // Уничтожение буфера индексов
@@ -601,28 +601,23 @@ void Vulkan::createGraphicPipeline() {
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
 	// Привязка
-	VkVertexInputBindingDescription bindingDescription{};
-	bindingDescription.binding = 0;
-	bindingDescription.stride = sizeof(Vertex);
-	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    VkVertexInputBindingDescription bindingDescription{};
+    bindingDescription.binding = 0;
+    bindingDescription.stride = sizeof(Vertex);
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-	// Описание атрибута
-	VkVertexInputAttributeDescription attributeDescriptions[2];
+    // Описание атрибута (только позиция)
+    VkVertexInputAttributeDescription attributeDescriptions[1];
 
-	attributeDescriptions[0].binding = 0;
-	attributeDescriptions[0].location = 0;
-	attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-	attributeDescriptions[0].offset = offsetof(Vertex, position);
+    attributeDescriptions[0].binding = 0;
+    attributeDescriptions[0].location = 0;
+    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[0].offset = offsetof(Vertex, position);
 
-	attributeDescriptions[1].binding = 0;
-	attributeDescriptions[1].location = 1;
-	attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-	attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-	vertexInputInfo.vertexBindingDescriptionCount = 1;
-	vertexInputInfo.vertexAttributeDescriptionCount = 2;
-	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.vertexAttributeDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions;
 
 	// Входной сборщик
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -863,26 +858,32 @@ void Vulkan::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
 
 // Создание вершинного буфера
 void Vulkan::createVertexBuffer() {
-
+	vertices.clear();
 	for (int i = 0; i < size_of_field; i++) {
 		for (int j = 0; j < size_of_field; j++) {
-			vertices.push_back(
-				{ {((float)i)/size_of_field, ((float)j)/size_of_field, sin(i + j)/size_of_field}}
-			);
+			vertices.push_back({
+				{((float)i)/size_of_field, ((float)j)/size_of_field, 0.0f}  // Z будет вычисляться в шейдере
+			});
 		}
 	}
 
-    VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
-    createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+	VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
+	createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertexBuffer, vertexBufferMemory);
 
-    updateVertexBuffer();
+	// Теперь updateVertexBuffer() не нужен, так как анимация полностью в шейдере
+	void* data;
+	vkMapMemory(logicalDevice, vertexBufferMemory, 0, bufferSize, 0, &data);
+	// Копирование вершин в промежуточный буфер
+	memcpy(data, vertices.data(), (size_t) bufferSize);
+	// Прекращение отображения памяти буфера
+	vkUnmapMemory(logicalDevice, vertexBufferMemory);
 }
 
 // Создание буфера индексов
 void Vulkan::createIndexBuffer() {
 
-    std::vector<uint32_t> indices((size_of_field-1)*(size_of_field-1)*6);
+	std::vector<uint32_t> indices((size_of_field-1)*(size_of_field-1)*6);
 
 	for (int i = 0; i < (size_of_field-1); i++) {
 		for (int j = 0; j < (size_of_field-1); j++) {
@@ -895,7 +896,7 @@ void Vulkan::createIndexBuffer() {
 		}
 	}
 
-    VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
+	VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
 
 	// Промежуточный буфер для переноса на устройство
 	VkBuffer stagingBuffer;
@@ -969,19 +970,19 @@ void Vulkan::createFramebuffers() {
 }
 
 void Vulkan::createDescriptorPool() {
-    VkDescriptorPoolSize poolSize{};
-    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount = 1;
+	VkDescriptorPoolSize poolSize{};
+	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSize.descriptorCount = 1;
 
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes = &poolSize;
-    poolInfo.maxSets = 1;
+	VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.poolSizeCount = 1;
+	poolInfo.pPoolSizes = &poolSize;
+	poolInfo.maxSets = 1;
 
-    if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor pool!");
-    }
+	if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create descriptor pool!");
+	}
 }
 
 void Vulkan::createDescriptorSet() {
@@ -999,7 +1000,7 @@ void Vulkan::createDescriptorSet() {
     VkDescriptorBufferInfo bufferInfo{};
     bufferInfo.buffer = uniformBuffer;
     bufferInfo.offset = 0;
-    bufferInfo.range = sizeof(glm::mat4) * 3;
+    bufferInfo.range = sizeof(glm::mat4) * 3 + sizeof(float); // Обновляем размер
 
     VkWriteDescriptorSet descriptorWrite{};
     descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
