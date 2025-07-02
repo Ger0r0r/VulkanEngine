@@ -5,11 +5,6 @@
 
 void vkInit();
 
-bool key_W_flag;
-bool key_A_flag;
-bool key_S_flag;
-bool key_D_flag;
-
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -60,13 +55,15 @@ int main(int argc, char* argv[]) {
 			if (deltaTime_fps >= fpsUpdateInterval) {
 				std::cout << "FPS: " << frameCount << std::endl;
 				frameCount = 0;
+				// glm::vec3 temp_pos = vulkan.getCameraPos();
+				// std::cout << "Camera: (" << temp_pos.x << ", " << temp_pos.y << ", " << temp_pos.z << ")"<< std::endl;
 				lastTime_fps = currentTime;
 			}
 
 			processInput(window);  // Вызываем обработчик ввода
 
 			if (deltaTime_frame >= frameUpdateInterval) {
-				vulkan.renderFrame(key_W_flag, key_A_flag, key_S_flag, key_D_flag);// Отрисовка кадра
+				vulkan.renderFrame();// Отрисовка кадра
 				frameCount++;
 				lastTime_frame = currentTime;
 			}

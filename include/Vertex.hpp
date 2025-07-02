@@ -3,10 +3,8 @@
 
 #include <GLM/glm.hpp>
 
-typedef struct _Vertex
-{
+typedef struct _Vertex {
     glm::vec3 position;
-    glm::vec3 color;
 } Vertex;
 
 #endif // VERTEX_H
