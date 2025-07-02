@@ -98,6 +98,7 @@ class Vulkan
 		void createIndexBuffer(); // Создание буфера индексов
 		void createSyncObjects(); // Создание объектов синхронизации
 		void createFramebuffers(); // Создание буферов кадра
+		void updateVertexBuffer();
 };
 
 #endif // VK_H
