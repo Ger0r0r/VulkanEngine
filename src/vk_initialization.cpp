@@ -31,7 +31,7 @@ void Vulkan::init(GLFWwindow* window) {
 }
 
 void Vulkan::createUniformBuffer() {
-	VkDeviceSize bufferSize = sizeof(glm::mat4) * 3 + sizeof(float); // model, view, proj + time
+	VkDeviceSize bufferSize = sizeof(glm::mat4) * 3 + sizeof(float) + sizeof(int); // model, view, proj + time
 
 	createBuffer(bufferSize,
 			   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,

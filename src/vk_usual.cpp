@@ -89,6 +89,7 @@ void Vulkan::renderFrame() {
     memcpy((char*)uniformBufferMapped + sizeof(glm::mat4), &viewMatrix, sizeof(glm::mat4));
     memcpy((char*)uniformBufferMapped + 2*sizeof(glm::mat4), &projMatrix, sizeof(glm::mat4));
     memcpy((char*)uniformBufferMapped + 3*sizeof(glm::mat4), &animationTime, sizeof(float));
+    memcpy((char*)uniformBufferMapped + 3*sizeof(glm::mat4) + sizeof(float), &size_of_field, sizeof(float));
 
 	// 1. Обновляем таймер анимации
 	animationTime += deltaTime;  // Скорость анимации

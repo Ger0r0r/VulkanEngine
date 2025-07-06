@@ -12,7 +12,7 @@
 class Vulkan
 {
 	public:
-		const int size_of_field = 1000;
+		const uint32_t size_of_field = 1000;
 		void init(GLFWwindow* window); // инициализация
 		void destroy(); // завершение работы
 		void renderFrame(); // рендер кадра

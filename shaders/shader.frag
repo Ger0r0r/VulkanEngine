@@ -1,14 +1,14 @@
 #version 450
 
 layout(location = 0) in vec2 fragPos;
-
 layout(location = 0) out vec4 outColor;
 
 layout(binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 proj;
-    float time;  // Время для анимации
+    float time;
+	int size;  // Время для анимации
 } ubo;
 
 vec3 hsvToRgb(vec3 c) {
