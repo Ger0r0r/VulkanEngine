@@ -1,0 +1,51 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Compile Shaders",
+			"type": "shell",
+			"command": "mkdir \"build\\shaders\" 2>nul & \"C:\\VulkanSDK\\1.4.313.2\\Bin\\glslc.exe\" shaders/shader.vert -o \"build\\shaders\\vert.spv\" & \"C:\\VulkanSDK\\1.4.313.2\\Bin\\glslc.exe\" shaders/shader.frag -o \"build\\shaders\\frag.spv\"",
+			"options": {
+				"shell": {
+				"executable": "cmd.exe",
+				"args": ["/d", "/c"]
+				}
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Build Project",
+			"type": "shell",
+			"command": "cmake -G \"MinGW Makefiles\" -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build --config Debug",
+			"options": {
+				"shell": {
+				"executable": "cmd.exe",
+				"args": ["/d", "/c"]
+				}
+			},
+			"problemMatcher": ["$gcc"]
+		},
+		{
+			"label": "Run Program",
+			"type": "shell",
+			"command": ".\\build\\VulkanTriangle.exe",
+			"options": {
+				"shell": {
+				"executable": "cmd.exe",
+				"args": ["/d", "/c"]
+				}
+			},
+			"dependsOn": ["Build Project"]
+		},
+		{
+			"label": "Full Rebuild & Run",
+			"dependsOrder": "sequence",
+			"dependsOn": ["Compile Shaders", "Build Project", "Run Program"],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+		}
+	]
+}
