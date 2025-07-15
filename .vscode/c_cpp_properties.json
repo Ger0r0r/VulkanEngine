@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "some_name",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "C:/VulkanSDK/1.4.313.2/Include",
+                "C:/Program Files/Assimp/Include",
+                "C:/Program Files/stb_image",
+                "${workspaceFolder}/external/glfw/include"
+            ],
+            "compilerPath": "C:/mingw64/bin/g++.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "gcc-x86"
+        }
+    ],
+    "version": 4
+}

@@ -4,21 +4,74 @@
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 
+#include "assimp/Importer.hpp"
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
+
 #include "PhysicalDevice.hpp"
 #include "Surface.hpp"
 #include "Queue.hpp"
 #include "Vertex.hpp"
 
+
+typedef struct _Material {
+    VkImage diffuseImage;
+    VkImage normalImage;
+    VkImage specularImage;
+    VkImage emissionImage;
+    VkImage aoImage;
+    // Соответствующие image views и samplers
+} Material;
+
 class Vulkan
 {
 	public:
-		const uint32_t size_of_field = 1000;
+		const uint32_t size_of_field = 100;
 		void init(GLFWwindow* window); // инициализация
 		void destroy(); // завершение работы
 		void renderFrame(); // рендер кадра
 		void setDeltaTime(float dt) { deltaTime = dt; }
 		glm::vec3 getCameraPos() const ;
+
 	private:
+		VkImage depthImage;
+		VkDeviceMemory depthImageMemory;
+		VkImageView depthImageView;
+
+		VkFormat findDepthFormat();
+		void createDepthResources();
+
+		VkImage textureImage;
+		VkDeviceMemory textureImageMemory;
+		VkImageView textureImageView;
+		VkSampler textureSampler;
+
+		void createTextureImage();
+		void createImage(uint32_t width, uint32_t height, VkFormat format,
+                        VkImageTiling tiling, VkImageUsageFlags usage,
+                        VkMemoryPropertyFlags properties,
+                        VkImage& image, VkDeviceMemory& imageMemory);
+		void transitionImageLayout(VkImage image, VkFormat format,
+					VkImageLayout oldLayout, VkImageLayout newLayout);
+		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+		void createTextureSampler();
+		void createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageView* imageView);
+		uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
+		// Для однократных команд
+		VkCommandBuffer beginSingleTimeCommands();
+		void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+
+		std::vector<Vertex> modelVertices;
+		std::vector<uint32_t> modelIndices;
+		VkBuffer modelVertexBuffer;
+		VkDeviceMemory modelVertexBufferMemory;
+		VkBuffer modelIndexBuffer;
+		VkDeviceMemory modelIndexBufferMemory;
+
+		void loadModel(const std::string& path);
+		void createModelBuffers();
+
 		VkBuffer stagingVertexBuffer;
 		VkDeviceMemory stagingVertexBufferMemory;
 		void* stagingVertexBufferMapped;
@@ -40,7 +93,7 @@ class Vulkan
 		glm::mat4 modelMatrix;
 		glm::mat4 viewMatrix;
 		glm::mat4 projMatrix;
-		glm::vec3 cameraPos = glm::vec3(-0.5f, 0.5f, 2.0f);
+		glm::vec3 cameraPos = glm::vec3(0.0f, 1.25f, 4.0f);
 		glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 		glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 

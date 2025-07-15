@@ -5,11 +5,15 @@ set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++")
 
 add_subdirectory(external/glfw)
 
-include_directories(include)
+include_directories(
+	include
+	external/stb_image
+)
 
+find_package(assimp CONFIG REQUIRED)
 find_package(Vulkan REQUIRED)
 
 file(GLOB CPPS "src/*.cpp")
 
 add_executable(VulkanTriangle ${CPPS})
-target_link_libraries(VulkanTriangle glfw Vulkan::Vulkan)
+target_link_libraries(VulkanTriangle glfw Vulkan::Vulkan assimp::assimp)
