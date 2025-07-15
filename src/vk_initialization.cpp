@@ -23,6 +23,7 @@ void Vulkan::init(GLFWwindow* window) {
 	selectPhysicalDevice(deviceExtensions); // Выбор физического устройства
 	createLogicalDevice(deviceExtensions); // Создание физического устройства
 	createSwapchain(window); // Создание списка показа
+    createDepthResources(); // Добавить эту строку
 	createRenderpass(); // Создание проходов рендера
 	createFramebuffers(); // Создание буферов кадра
 	createDescriptorSetLayout(); // <- Добавляем эту строку
@@ -420,6 +421,10 @@ void Vulkan::destroy() {
 	vkDestroyImageView(logicalDevice, textureImageView, nullptr);
 	vkDestroyImage(logicalDevice, textureImage, nullptr);
 	vkFreeMemory(logicalDevice, textureImageMemory, nullptr);
+
+    vkDestroyImageView(logicalDevice, depthImageView, nullptr);
+    vkDestroyImage(logicalDevice, depthImage, nullptr);
+    vkFreeMemory(logicalDevice, depthImageMemory, nullptr);
 
 	// Уничтожаем uniform buffer
 	vkDestroyBuffer(logicalDevice, uniformBuffer, nullptr);
@@ -856,52 +861,69 @@ void Vulkan::createSwapchain(GLFWwindow* window) {
 
 // Создание проходов рендера
 void Vulkan::createRenderpass() {
-	// Информация о прикреплении
-	VkAttachmentDescription colorAttachment{};
-	colorAttachment.format = surface.selectedFormat.format;
-	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    // Attachment для цвета
+    VkAttachmentDescription colorAttachment{};
+    colorAttachment.format = surface.selectedFormat.format;
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-	// Информация о выходном прикреплении
-	VkAttachmentReference colorAttachmentRef{};
-	colorAttachmentRef.attachment = 0;
-	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    // Attachment для глубины
+    VkAttachmentDescription depthAttachment{};
+    depthAttachment.format = findDepthFormat();
+    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	// Информация о подпроходе
-	VkSubpassDescription subpass{};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &colorAttachmentRef;
+    // References
+    VkAttachmentReference colorAttachmentRef{};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-	// Зависимости подпрохода
-	VkSubpassDependency dependency{};
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.srcAccessMask = 0;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    VkAttachmentReference depthAttachmentRef{};
+    depthAttachmentRef.attachment = 1;
+    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	// Информация о создаваемом проходе рендера
-	VkRenderPassCreateInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = 1;
-	renderPassInfo.pAttachments = &colorAttachment;
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
-	renderPassInfo.dependencyCount = 1;
-	renderPassInfo.pDependencies = &dependency;
+    // Subpass
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
-	// Создание проходов рендера
-	if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
-		throw std::runtime_error("Unable to create render pass");
-	}
+    // Dependencies
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
+    // Массив attachments
+    std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
+
+    // Render pass info
+    VkRenderPassCreateInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    renderPassInfo.pAttachments = attachments.data();
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+    renderPassInfo.dependencyCount = 1;
+    renderPassInfo.pDependencies = &dependency;
+
+    if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to create render pass");
+    }
 }
 
 #include <fstream>
@@ -947,6 +969,39 @@ VkShaderModule Vulkan::createShaderModule(const char * filename) {
 	}
 
 	return shaderModule;
+}
+
+void Vulkan::createDepthResources() {
+    VkFormat depthFormat = findDepthFormat();
+
+    createImage(
+        surface.selectedExtent.width,
+        surface.selectedExtent.height,
+        depthFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        depthImage,
+        depthImageMemory
+    );
+
+    createImageView(
+        depthImage,
+        depthFormat,
+        VK_IMAGE_ASPECT_DEPTH_BIT,
+        &depthImageView
+    );
+
+    transitionImageLayout(
+        depthImage,
+        depthFormat,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    );
+}
+
+VkFormat Vulkan::findDepthFormat() {
+    return VK_FORMAT_D32_SFLOAT; // Или другой подходящий формат
 }
 
 // Создание графического конвеера
@@ -1065,6 +1120,16 @@ void Vulkan::createGraphicPipeline() {
 	// Шейдерные стадии
 	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
+    // Добавляем состояние глубины
+    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_TRUE;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.minDepthBounds = 0.0f;
+    depthStencil.maxDepthBounds = 1.0f;
+    depthStencil.stencilTestEnable = VK_FALSE;
 
 	// Информация о создаваемом конвейере
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -1075,6 +1140,7 @@ void Vulkan::createGraphicPipeline() {
 	pipelineInfo.pInputAssemblyState = &inputAssembly;
 	pipelineInfo.pViewportState = &viewportState;
 	pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.pMultisampleState = &multisampling;
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.layout = pipelineLayout;
@@ -1141,31 +1207,27 @@ void Vulkan::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryP
 
 // Создание пула команд
 void Vulkan::createCommandPool() {
-	// Информация о создаваемом командном пуле
-	VkCommandPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	poolInfo.queueFamilyIndex = queue.index;
+    VkCommandPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    poolInfo.queueFamilyIndex = queue.index;  // ← Убедитесь, что queue.index установлен правильно
 
-	// Создание командного пула
-	if (vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
-		throw std::runtime_error("Unable to create graphics command pool");
-	}
+    if (vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to create graphics command pool");
+    }
 
-	// Выделим память под буферы команд
-	commandBuffers.resize(swapChainImages.size());
+    // Выделение буферов команд
+    commandBuffers.resize(swapChainImages.size());
 
-	// Информация о выделяемых буферах
-	VkCommandBufferAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.commandPool = commandPool;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandBufferCount = (uint32_t) commandBuffers.size();
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = commandPool;  // ← Используем созданный commandPool
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
 
-	// Выделение буферов команд из пула команд
-	if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
-		throw std::runtime_error("Unable to allocate command buffers");
-	}
+    if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
+        throw std::runtime_error("Unable to allocate command buffers");
+    }
 }
 
 // Копирование между буферами данных
@@ -1299,27 +1361,27 @@ void Vulkan::createSyncObjects() {
 
 // Создание буферов кадра
 void Vulkan::createFramebuffers() {
-	// Зададим размер массива в соответствии с количеством изображений
-	swapChainFramebuffers.resize(swapChainImageViews.size());
-	// Для каждого изображения из списка показа
-	for (int i = 0; i < swapChainImageViews.size(); i++) {
-		// Изображения используемые в буфере кадра
-		VkImageView attachments[] = { swapChainImageViews[i] };
-		// Заполним данные о создаваемом буфере кадра
-		VkFramebufferCreateInfo framebufferInfo{};
-		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = renderPass;
-		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = attachments;
-		framebufferInfo.width = surface.selectedExtent.width;
-		framebufferInfo.height = surface.selectedExtent.height;
-		framebufferInfo.layers = 1;
+    swapChainFramebuffers.resize(swapChainImageViews.size());
 
-		// Создание буфера кадра
-		if (vkCreateFramebuffer(logicalDevice, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
-			throw std::runtime_error("Unable to create framebuffer");
-		}
-	}
+    for (size_t i = 0; i < swapChainImageViews.size(); i++) {
+        std::array<VkImageView, 2> attachments = {
+            swapChainImageViews[i],
+            depthImageView
+        };
+
+        VkFramebufferCreateInfo framebufferInfo{};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = renderPass;
+        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+        framebufferInfo.pAttachments = attachments.data();
+        framebufferInfo.width = surface.selectedExtent.width;
+        framebufferInfo.height = surface.selectedExtent.height;
+        framebufferInfo.layers = 1;
+
+        if (vkCreateFramebuffer(logicalDevice, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("Unable to create framebuffer");
+        }
+    }
 }
 
 void Vulkan::createDescriptorPool() {

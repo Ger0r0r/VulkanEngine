@@ -37,9 +37,9 @@ class Vulkan
 		VkImage depthImage;
 		VkDeviceMemory depthImageMemory;
 		VkImageView depthImageView;
+    	void createDepthResources();
 
 		VkFormat findDepthFormat();
-		void createDepthResources();
 
 		VkImage textureImage;
 		VkDeviceMemory textureImageMemory;
